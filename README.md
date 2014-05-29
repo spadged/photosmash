@@ -25,16 +25,25 @@ There's a fair few bits and bobs to install to get this badboy up and running:
 
 Then we're onto the fun stuff:
 
-- Install [gm](https://github.com/aheckmann/gm) through npm `npm install gm`
-- Install [Fluent FFmpeg](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg) through npm `npm install fluent-ffmpeg`
+- Install [gm](https://github.com/aheckmann/gm) through npm 
+`npm install gm`
+- Install [Fluent FFmpeg](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg) through npm 
+`npm install fluent-ffmpeg`
 
 ##Usage
 
-Add some images to the `in` folder - Open up terminal and navigate to the folder that contains `smash.js`
+Add some images to the `in` folder - Open up your terminal (or command prompt) and navigate to the folder that contains `smash.js`
 
 Once there, set it off:
 
 `node smash.js`
+
+You should find your finished video in the `out` folder.
+
+##Settings
+The settings are geared towards high quality, you will end up with quite weighty videos if you don't tweak the settings.
+
+You'll find the api documentation for [mp here](https://github.com/aheckmann/gm#basic-usage) and [Fluent FFmpeg here](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg#supplying-ffmpeg-options).
 
 ##License
 
