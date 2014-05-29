@@ -9,7 +9,7 @@ Inspired by the [Ghettovision](https://github.com/jamiew/ghettovision) script by
 3. encode intermediates into sexy MPEG4 video
 4. add your own music and enjoy!
 
-##Dependancies
+##Dependencies
 
 - node.js
 - imagemagick
