@@ -1,30 +1,41 @@
 # Photo Smash
 
-A node.js script that makes a video out of a directory of photos - sorta like pummelvision.com
+A node.js script that  will assemble a directory of images into a video of fast-moving images, like [pummelvision.com](http://pummelvision.com) by [@jakelodwick](https://github.com/jakelodwick).
 
-##Getting started!
-There's a fair few bits and bobs to install to get this badboy up and running
+Inspired by the [Ghettovision](https://github.com/jamiew/ghettovision) script by [@jamiew](https://github.com/jamiew).
 
-Download and install [ImageMagick](http://www.imagemagick.org/) - This is for resizing your images into the required format.
+1. read a directory of input images
+2. generate letterboxed 1280x720 JPEG intermediates
+3. encode intermediates into sexy MPEG4 video
+4. add your own music and enjoy!
 
-Download and install [FFmpeg](http://www.ffmpeg.org/) - This is for merging the images into a video.
+##Dependancies
 
-Download and install the [x264](http://www.videolan.org/developers/x264.html) encoder - This enables us to encode the video in shiney HD.
+- node.js
+- imagemagick
+- FFmpeg
 
-Download and install [node.js](http://nodejs.org/) - The glue that holds everything together.
+##Setup
+There's a fair few bits and bobs to install to get this badboy up and running:
+
+- Download and install [ImageMagick](http://www.imagemagick.org/) (Image processing)
+- Download and install [FFmpeg](http://www.ffmpeg.org/) (Video generation)
+- Download and install the [x264 encoder](http://www.videolan.org/developers/x264.html) (Encoding)
+- Download and install [node.js](http://nodejs.org/) - (Glue)
 
 Then we're onto the fun stuff:
 
-Install [gm](https://github.com/aheckmann/gm) through npm
+- Install [gm](https://github.com/aheckmann/gm) through npm `npm install gm`
+- Install [Fluent FFmpeg](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg) through npm `npm install fluent-ffmpeg`
 
-`npm install gm`
+##Usage
 
-Install Fluent [FFmpeg](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg) through npm
+Add some images to the `in` folder - Open up terminal and navigate to the folder that contains `smash.js`
 
-`npm install fluent-ffmpeg`
-
-Then you should be good to go - Add some images to the `in` folder - Open up terminal and navigate to the folder that contains `smash.js`
-
-Once you're there set it off:
+Once there, set it off:
 
 `node smash.js`
+
+##License
+
+This source code released under an MIT license
