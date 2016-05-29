@@ -19,7 +19,7 @@ var currentImage = 0;
 
 var imageTotal;
 
-var FPS = 8;
+var IPS = 8;
 
 function smash()
 {
@@ -99,7 +99,7 @@ function buildVideo()
 		.withVideoCodec('libx264')
 		.withSize(size.width + 'x' + size.height)
 		.withVideoBitrate('2000k')
-		.withFpsInput(FPS)
+		.withFpsInput(IPS)
 		.withFpsOutput(30)
 		.addOptions(['-crf 19', '-preset slow'])
 		.on('progress', function(progress) {
@@ -113,7 +113,5 @@ function buildVideo()
 		})
 		.saveToFile(output + 'output.mp4');
 }
-
-//buildVideo();
 
 smash();
