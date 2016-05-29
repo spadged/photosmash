@@ -28,7 +28,7 @@ There's a fair few bits and bobs to install to get this badboy up and running:
 Then we're onto the fun stuff:
 
 To install all the NPM dependencies, run:
-`npm install gm`
+`npm install`
 
 ##Usage
 
