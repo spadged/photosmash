@@ -4,6 +4,7 @@ var im = gm.subClass({ imageMagick: true });
 var FFmpeg = require('fluent-ffmpeg');
 var prompt = require('prompt');
 var ExifImage = require('exif').ExifImage;
+var Q = require('q');
 
 var input = "./in/";
 var temp = "./temp/";
@@ -29,11 +30,21 @@ var FPS = 30;
 
 function smash()
 {
+	start()
+		.then(orderImages)
+		.then(proccessImages)
+		.then(buildVideo);
+}
+
+function start()
+{
 	var errors = [];
 	
+	var deferred = Q.defer();
+	  
 	if(!hasFolders())
 	{
-		errors.push("One or more of the required folders are missing (in, out, temp). Try running 'npm install' first");
+		errors.push("One or more of the required folders are missing (in, out, temp). Try running 'npm install' first.");
 	}
 	
 	if(!hasInputImages())
@@ -46,23 +57,26 @@ function smash()
 		prompt.start();
 		
 		prompt.get(['BPM'], function (err, result)
-		{
-			console.log('Command-line input received:');
-			
+		{			
 			IPS = bpmToIps(result.BPM);
 			
 			console.info("Processing > BPM: " + result.BPM + " | FPS: " +  FPS + " | IPS: " + IPS);
 			
-			startProcess();
+			console.log("Processing images...");
+	
+			fileList = fs.readdirSync(input);
+			
+			deferred.resolve();
 		});
 	}
 	else
-	{
-		for(var i = 0; i < errors.length; i++)
-		{
-			console.error(errors[i]);
-		}
+	{		
+		var error = new Error(errors.join("\n"));
+		
+        deferred.reject(error);
 	}
+	
+	return deferred.promise;
 }
 
 function hasInputImages()
@@ -73,15 +87,6 @@ function hasInputImages()
 function hasFolders()
 {
 	return true;
-}
-
-function startProcess()
-{
-	console.log("Processing images...");
-	
-	fileList = fs.readdirSync(input);
-	
-	orderImages();
 }
 
 function orderImages()
@@ -248,6 +253,8 @@ function buildVideo()
 {
 	console.log("Generating Video...");
 	
+	var deferred = Q.defer();
+	
 	new FFmpeg({source: temp + 'frame_%04d.png' })
 		.withNoAudio()
 		.withVideoCodec('libx264')
@@ -256,18 +263,31 @@ function buildVideo()
 		.withFpsInput(IPS)
 		.withFpsOutput(FPS)
 		.addOptions(['-crf 19', '-preset slow'])
-		.on('progress', function(progress) {
+		.on('progress', function(progress)
+		{
 			console.log("Processing frames: ", progress.frames);
+			
+			//togo : pipe progress event
 		})
-		.on('error', function(err, stdout, stderr) {
+		.on('error', function(err, stdout, stderr)
+		{
 			console.log('Cannot process video: ' + err.message);
 			console.log("ffmpeg stdout:\n" + stdout);
-  			console.log("ffmpeg stderr:\n" + stderr);
+			console.log("ffmpeg stderr:\n" + stderr);
+			
+			//todo : pipe error through
+			
+			deferred.reject();
 		})
-		.on('end', function() {
+		.on('end', function()
+		{
 			console.log('Finished !');
+			
+			deferred.resolve();
 		})
 		.saveToFile(output + 'output.mp4');
+	
+	return deferred.promise;
 }
 
 smash();
