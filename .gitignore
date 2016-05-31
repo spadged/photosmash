@@ -2,3 +2,4 @@ node_modules
 temp
 in
 out
+npm_debug.log
