@@ -15,13 +15,15 @@ var size = {width:1280,height:720};
 //1080
 //var size = {width:1920,height:1080};
 
-var images;
+var fileList = [];
 
-var currentImage = 0;
+var fileIndex = 0;
 
-var imageTotal;
+var imageList = [];
 
-var IPS = 0;
+var imageIndex = 0;
+
+var IPS = 8;
 
 var FPS = 30;
 
@@ -63,22 +65,105 @@ function smash()
 	}
 }
 
+function hasInputImages()
+{
+	return true;
+}
+
+function hasFolders()
+{
+	return true;
+}
+
 function startProcess()
 {
 	console.log("Processing images...");
+	
+	fileList = fs.readdirSync(input);
+	
+	orderImages();
+}
+
+function orderImages()
+{
+	var file = fileList[fileIndex];
+	
+	getExifData(file, function(data)
+	{
+		imageList.push({
+			"name": file,
+			"date": Number(getImageDate(data))
+		});
 		
-	images = fs.readdirSync(input);
-		
-	imageTotal = images.length;
-		
-	processImage(images[currentImage]);
+		var targetFile = fileIndex++;
+				
+		if(targetFile != fileList.length-1)
+		{
+			orderImages();
+		}
+		else
+		{
+			console.log('Images ordered!');
+			
+			imageList.sort(sortImages);
+			
+			processImage();
+		}
+	});
+}
+
+function getImageDate(data)
+{
+	var fileDate = "";
+	
+	if(data.exif.hasOwnProperty("CreateDate"))
+	{
+		fileDate = data.exif.CreateDate;
+	}
+	else if(data.exif.hasOwnProperty("DateTimeOriginal"))
+	{
+		fileDate = data.exif.DateTimeOriginal;
+	}
+	else if(data.image.hasOwnProperty("ModifyDate"))
+	{
+		fileDate = data.image.ModifyDate;
+	}
+	else
+	{
+		console.error("Could not get date for image");
+	}
+	
+	return fileDate.split(":").join("").replace(" ", "");
+}
+
+function bpmToIps(bpm)
+{
+	var ipsRaw = (FPS * 60) / bpm;
+	
+	return Math.round(ipsRaw * 100) / 100;
+}
+
+function sortImages(a,b)
+{
+	if (a.date < b.date)
+	{
+		return -1;
+	}
+	else if (a.date > b.date)
+	{
+		return 1;
+	}
+	else
+	{
+		 return 0;
+	} 
 }
 
 function getExifData(imagePath, callback)
 {
 	try
 	{
-		new ExifImage({ image : imagePath }, function (error, exifData)
+		new ExifImage({ image : input + imagePath }, function (error, exifData)
 		{
 			if (error)
 			{
@@ -96,72 +181,74 @@ function getExifData(imagePath, callback)
 	}	
 }
 
-function processImage(image)
+function processImage()
 {
-	console.log("Processing image: " + image);
+	var image = imageList[imageIndex];
+	
+	console.log("Processing image: " + image.name);
 	
 	var width = size.width;
 	var height = size.height;
 	
 	var imageNumber;
 	
-	switch(String(currentImage).length)
+	switch(String(imageIndex).length)
 	{
 		case 1:
-			imageNumber = '00' + currentImage;
+			imageNumber = '000' + imageIndex;
 			break;
 		case 2:
-			imageNumber = '0' + currentImage;
+			imageNumber = '00' + imageIndex;
+			break;
+		case 3:
+			imageNumber = '0' + imageIndex;
 			break;
 		default:
-			imageNumber = currentImage;
+			imageNumber = imageIndex;
 			break;
 	}
 	
-	getExifData(image, function(exifData)
-	{
-		var imageName = getImageName(exifData);
-		
-		im(input + image)
-			.background('#000000')
-			.autoOrient()
-			.resize(width)
-			.gravity('Center')
-			.crop(width, height,0,0)
-			//.extent(width, height)
-			.noProfile()
-			.write(temp + imageName, function (err)
+	var imageName = "frame_" + imageNumber + ".png";
+	
+	im(input + image.name)
+		.background('#000000')
+		.autoOrient()
+		.resize(width)
+		.gravity('Center')
+		.crop(width, height,0,0)
+		//.extent(width, height)
+		.noProfile()
+		.write(temp + imageName, function (err)
+		{
+			if (!err)
 			{
-				if (!err)
-				{
-					console.log('Finished processing image: ' + imageName);
-				}
-				else
-				{
-					console.log('Error processing images: ' + err);
-				}
+				console.log('Finished processing image: ' + imageName);
+			}
+			else
+			{
+				console.log('Error processing images: ' + err);
+			}
+			
+			var targetImage = imageIndex++;
+			
+			if(targetImage != imageList.length - 1)
+			{
+				processImage();
+			}
+			else
+			{
+				console.log('Images processed!');
 				
-				var targetImage = currentImage++;
-				
-				if(targetImage != imageTotal)
-				{
-					processImage(images[targetImage]);
-				}
-				else
-				{
-					console.log('Images processed!');
-					
-					buildVideo();
-				}
-			});
-	});	
+				buildVideo();
+			}
+		});
 }
 
 function buildVideo()
 {
 	console.log("Generating Video...");
 	
-	new FFmpeg({source: temp + 'img_%03d.png' })
+	new FFmpeg({source: temp + 'frame_%04d.png' })
 		.withNoAudio()
 		.withVideoCodec('libx264')
 		.withSize(size.width + 'x' + size.height)
@@ -170,108 +257,17 @@ function buildVideo()
 		.withFpsOutput(FPS)
 		.addOptions(['-crf 19', '-preset slow'])
 		.on('progress', function(progress) {
-			console.log('Processing: ' + progress.percent + '% done');
+			console.log("Processing frames: ", progress.frames);
 		})
-		.on('error', function(err) {
+		.on('error', function(err, stdout, stderr) {
 			console.log('Cannot process video: ' + err.message);
+			console.log("ffmpeg stdout:\n" + stdout);
+  			console.log("ffmpeg stderr:\n" + stderr);
 		})
 		.on('end', function() {
 			console.log('Finished !');
 		})
 		.saveToFile(output + 'output.mp4');
-}
-
-function getImageName(data)
-{
-	/*
-		{
-			image: {
-				Make: 'FUJIFILM',
-				Model: 'FinePix40i',
-				Orientation: 1,
-				XResolution: 72,
-				YResolution: 72,
-				ResolutionUnit: 2,
-				Software: 'Digital Camera FinePix40i Ver1.39',
-				ModifyDate: '2000:08:04 18:22:57',
-				YCbCrPositioning: 2,
-				Copyright: '          ',
-				ExifOffset: 250
-			},
-			exif: {
-				FNumber: 2.8,
-				ExposureProgram: 2,
-				ISO: 200,
-				ExifVersion: <Buffer 30 32 31 30>,
-				DateTimeOriginal: '2000:08:04 18:22:57',
-				CreateDate: '2000:08:04 18:22:57',
-				ComponentsConfiguration: <Buffer 01 02 03 00>,
-				CompressedBitsPerPixel: 1.5,
-				ShutterSpeedValue: 5.5,
-				ApertureValue: 3,
-				BrightnessValue: 0.26,
-				ExposureCompensation: 0,
-				MaxApertureValue: 3,
-				MeteringMode: 5,
-				Flash: 1,
-				FocalLength: 8.7,
-				MakerNote: <Buffer 46 55 4a 49 46 49 4c 4d 0c 00 00 00 0f 00 00 00 07 00 04 00 00 00 30 31 33 30 00 10 02 00 08 00 00 00 c6 00 00 00 01 10 03 00 01 00 00 00 03 00 00 00 02 ...>,
-				FlashpixVersion: <Buffer 30 31 30 30>,
-				ColorSpace: 1,
-				ExifImageWidth: 2400,
-				ExifImageHeight: 1800,
-				InteropOffset: 926,
-				FocalPlaneXResolution: 2381,
-				FocalPlaneYResolution: 2381,
-				FocalPlaneResolutionUnit: 3,
-				SensingMethod: 2,
-				FileSource: <Buffer 03>,
-				SceneType: <Buffer 01>
-			}
-		}
-		*/
-	
-	var fileName = "";
-	
-	if(data.exif.hasOwnProperty("CreateDate"))
-	{
-		fileName = formatDate(data.exif.CreateDate);
-	}
-	else if(data.exif.hasOwnProperty("DateTimeOriginal"))
-	{
-		fileName = formatDate(data.exif.DateTimeOriginal);
-	}
-	else if(data.image.hasOwnProperty("ModifyDate"))
-	{
-		fileName = formatDate(data.image.ModifyDate);
-	}
-	else
-	{
-		console.error("Could not get date for image");
-	}
-	
-	return fileName;
-}
-
-function formatDate(input)
-{
-	//2000:08:04 18:22:57
-	return input.split(":").join(".");
-}
-
-function bpmToIps(bpm)
-{
-	return (fps * 60) / bpm;
-}
-
-function hasInputImages()
-{
-	return true;
-}
-
-function hasFolders()
-{
-	return true;
 }
 
 smash();
