@@ -79,6 +79,13 @@ function start()
 	return deferred.promise;
 }
 
+function bpmToIps(bpm)
+{
+	var ipsRaw = (FPS * 60) / bpm;
+	
+	return Math.round(ipsRaw * 100) / 100;
+}
+
 function hasInputImages()
 {
 	return true;
@@ -91,30 +98,49 @@ function hasFolders()
 
 function orderImages()
 {
-	var file = fileList[fileIndex];
+	var promises = [];
 	
-	getExifData(file, function(data)
+	for(var i = 0; i < fileList.length; i++)
 	{
-		imageList.push({
-			"name": file,
-			"date": Number(getImageDate(data))
-		});
+		promises.push(orderImage(fileList[i]));
+	}
+	
+	return Q.all(promises);
+}
+
+function orderImage(path)
+{
+	var deferred = Q.defer();
+	
+	try
+	{
+		new ExifImage({ image : input + path}, function (error, exifData)
+		{
+			if (error)
+			{
+				var error = new Error('Error: ' + error.message);
 		
-		var targetFile = fileIndex++;
+        		deferred.reject(error);
+			}
+			else
+			{
+				imageList.push({
+					"name": path,
+					"date": Number(getImageDate(exifData))
+				});
 				
-		if(targetFile != fileList.length-1)
-		{
-			orderImages();
-		}
-		else
-		{
-			console.log('Images ordered!');
-			
-			imageList.sort(sortImages);
-			
-			processImage();
-		}
-	});
+				deferred.resolve();
+			}
+		});
+	}
+	catch (error)
+	{		
+		var error = new Error('Error: ' + error.message);
+		
+        deferred.reject(error);	
+	}
+	
+	return deferred.promise;
 }
 
 function getImageDate(data)
@@ -141,13 +167,6 @@ function getImageDate(data)
 	return fileDate.split(":").join("").replace(" ", "");
 }
 
-function bpmToIps(bpm)
-{
-	var ipsRaw = (FPS * 60) / bpm;
-	
-	return Math.round(ipsRaw * 100) / 100;
-}
-
 function sortImages(a,b)
 {
 	if (a.date < b.date)
@@ -164,52 +183,45 @@ function sortImages(a,b)
 	} 
 }
 
-function getExifData(imagePath, callback)
+function proccessImages()
 {
-	try
+	var promises = [];
+	
+	imageList.sort(sortImages);
+	
+	for(var i = 0; i < imageList.length; i++)
 	{
-		new ExifImage({ image : input + imagePath }, function (error, exifData)
-		{
-			if (error)
-			{
-				console.log('Error: '+error.message);
-			}
-			else
-			{
-				callback(exifData);
-			}
-		});
+		promises.push(processImage(imageList[i], i));
 	}
-	catch (error)
-	{
-		console.log('Error: ' + error.message);
-	}	
+	
+	return Q.all(promises);
 }
 
-function processImage()
+function processImage(image, index)
 {
-	var image = imageList[imageIndex];
+	var deferred = Q.defer();
 	
-	console.log("Processing image: " + image.name);
+	deferred.notify("Processing image: " + image.name);
 	
 	var width = size.width;
+	
 	var height = size.height;
 	
 	var imageNumber;
 	
-	switch(String(imageIndex).length)
+	switch(String(index).length)
 	{
 		case 1:
-			imageNumber = '000' + imageIndex;
+			imageNumber = '000' + index;
 			break;
 		case 2:
-			imageNumber = '00' + imageIndex;
+			imageNumber = '00' + index;
 			break;
 		case 3:
-			imageNumber = '0' + imageIndex;
+			imageNumber = '0' + index;
 			break;
 		default:
-			imageNumber = imageIndex;
+			imageNumber = index;
 			break;
 	}
 	
@@ -226,27 +238,18 @@ function processImage()
 		.write(temp + imageName, function (err)
 		{
 			if (!err)
-			{
-				console.log('Finished processing image: ' + imageName);
+			{				
+				deferred.resolve('Finished processing image: ' + imageName);
 			}
 			else
-			{
-				console.log('Error processing images: ' + err);
-			}
-			
-			var targetImage = imageIndex++;
-			
-			if(targetImage != imageList.length - 1)
-			{
-				processImage();
-			}
-			else
-			{
-				console.log('Images processed!');
+			{				
+				var error = new Error('Error processing images: ' + err);
 				
-				buildVideo();
+				deferred.reject(error);
 			}
 		});
+		
+	return deferred.promise;
 }
 
 function buildVideo()
@@ -265,24 +268,22 @@ function buildVideo()
 		.addOptions(['-crf 19', '-preset slow'])
 		.on('progress', function(progress)
 		{
-			console.log("Processing frames: ", progress.frames);
-			
-			//togo : pipe progress event
+			deferred.notify("Processing frames: ", progress.frames);
 		})
 		.on('error', function(err, stdout, stderr)
 		{
-			console.log('Cannot process video: ' + err.message);
-			console.log("ffmpeg stdout:\n" + stdout);
-			console.log("ffmpeg stderr:\n" + stderr);
+			var sb = [];
 			
-			//todo : pipe error through
+			sb.push('Cannot process video: ' + err.message);
+			sb.push("ffmpeg stdout:\n" + stdout);
+			sb.push("ffmpeg stderr:\n" + stderr);
 			
-			deferred.reject();
+			var error = new Error(sb.join("\n"));
+			
+			deferred.reject(error);
 		})
 		.on('end', function()
 		{
-			console.log('Finished !');
-			
 			deferred.resolve();
 		})
 		.saveToFile(output + 'output.mp4');
