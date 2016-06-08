@@ -30,10 +30,22 @@ var FPS = 30;
 
 function smash()
 {
-	start()
+	Q.fcall(start)
 		.then(orderImages)
 		.then(proccessImages)
-		.then(buildVideo);
+		.then(buildVideo)
+		.catch(function(message)
+		{
+			console.log("Error > ", message);
+		})
+		.progress(function(message)
+		{
+			console.log(message);
+		})
+		.done(function()
+		{
+			console.log("Done");
+		});
 }
 
 function start()
@@ -61,8 +73,6 @@ function start()
 			IPS = bpmToIps(result.BPM);
 			
 			console.info("Processing > BPM: " + result.BPM + " | FPS: " +  FPS + " | IPS: " + IPS);
-			
-			console.log("Processing images...");
 	
 			fileList = fs.readdirSync(input);
 			
@@ -71,9 +81,7 @@ function start()
 	}
 	else
 	{		
-		var error = new Error(errors.join("\n"));
-		
-        deferred.reject(error);
+        deferred.reject(errors.join("\n"));
 	}
 	
 	return deferred.promise;
@@ -100,9 +108,16 @@ function orderImages()
 {
 	var promises = [];
 	
+	console.log('Getting EXIF data');
+
 	for(var i = 0; i < fileList.length; i++)
 	{
-		promises.push(orderImage(fileList[i]));
+		var name = fileList[i];
+
+		if(name != '.DS_Store')
+		{
+			promises.push(orderImage(name));
+		}
 	}
 	
 	return Q.all(promises);
@@ -111,8 +126,8 @@ function orderImages()
 function orderImage(path)
 {
 	var deferred = Q.defer();
-	
-	deferred.notify("Getting EXIF data for: ", path);
+
+	console.log("Getting EXIF data for: ", path);
 
 	try
 	{
@@ -120,9 +135,7 @@ function orderImage(path)
 		{
 			if (error)
 			{
-				var error = new Error('Error: ' + error.message);
-		
-        		deferred.reject(error);
+        		deferred.reject(error.message);
 			}
 			else
 			{
@@ -136,10 +149,8 @@ function orderImage(path)
 		});
 	}
 	catch (error)
-	{		
-		var error = new Error('Error: ' + error.message);
-		
-        deferred.reject(error);	
+	{				
+        deferred.reject(error.message);	
 	}
 	
 	return deferred.promise;
@@ -189,6 +200,8 @@ function proccessImages()
 {
 	var promises = [];
 	
+	console.log("Processing images...");
+
 	imageList.sort(sortImages);
 	
 	for(var i = 0; i < imageList.length; i++)
@@ -203,7 +216,7 @@ function processImage(image, index)
 {
 	var deferred = Q.defer();
 	
-	deferred.notify("Processing image: " + image.name);
+	console.log("Processing image: " + image.name);
 	
 	var width = size.width;
 	
@@ -244,10 +257,8 @@ function processImage(image, index)
 				deferred.resolve('Finished processing image: ' + imageName);
 			}
 			else
-			{				
-				var error = new Error('Error processing images: ' + err);
-				
-				deferred.reject(error);
+			{								
+				deferred.reject('Error processing images: ' + err);
 			}
 		});
 		
@@ -280,9 +291,7 @@ function buildVideo()
 			sb.push("ffmpeg stdout:\n" + stdout);
 			sb.push("ffmpeg stderr:\n" + stderr);
 			
-			var error = new Error(sb.join("\n"));
-			
-			deferred.reject(error);
+			deferred.reject(sb.join("\n"));
 		})
 		.on('end', function()
 		{
