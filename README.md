@@ -20,9 +20,19 @@ Inspired by the [Ghettovision](https://github.com/jamiew/ghettovision) script by
 ##Setup
 There's a fair few bits and bobs to install to get this badboy up and running:
 
+###Windows
+
 - Download and install [ImageMagick](http://www.imagemagick.org/) (Image processing)
 - Download and install [FFmpeg](http://www.ffmpeg.org/) (Video generation)
 - Download and install the [x264 encoder](http://www.videolan.org/developers/x264.html) (Encoding)
+
+
+###OSX
+- Install [homebrew](http://brew.sh/)
+- Install imagemagick `brew install imagemagick
+- Install ffmpeg `brew install ffmpeg
+
+###Both
 - Download and install [node.js](http://nodejs.org/) - (Glue)
 
 Then we're onto the fun stuff:
