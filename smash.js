@@ -112,6 +112,8 @@ function orderImage(path)
 {
 	var deferred = Q.defer();
 	
+	deferred.notify("Getting EXIF data for: ", path);
+
 	try
 	{
 		new ExifImage({ image : input + path}, function (error, exifData)
@@ -268,7 +270,7 @@ function buildVideo()
 		.addOptions(['-crf 19', '-preset slow'])
 		.on('progress', function(progress)
 		{
-			deferred.notify("Processing frames: ", progress.frames);
+			deferred.notify("Processing frames: " + progress.frames);
 		})
 		.on('error', function(err, stdout, stderr)
 		{
