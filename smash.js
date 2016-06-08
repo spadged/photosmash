@@ -271,6 +271,11 @@ function buildVideo()
 	
 	var deferred = Q.defer();
 	
+	/*
+		Options 
+		- '-pix_fmt yuv420p' http://superuser.com/questions/704744/video-produced-from-bmp-files-only-plays-in-vlc-but-no-other-players
+	*/
+
 	new FFmpeg({source: temp + 'frame_%04d.png' })
 		.withNoAudio()
 		.withVideoCodec('libx264')
@@ -278,7 +283,7 @@ function buildVideo()
 		.withVideoBitrate('2000k')
 		.withFpsInput(IPS)
 		.withFpsOutput(FPS)
-		.addOptions(['-crf 19', '-preset slow'])
+		.addOptions(['-crf 19', '-preset slow', '-pix_fmt yuv420p'])
 		.on('progress', function(progress)
 		{
 			deferred.notify("Processing frames: " + progress.frames);
