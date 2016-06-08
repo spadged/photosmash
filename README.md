@@ -29,8 +29,8 @@ There's a fair few bits and bobs to install to get this badboy up and running:
 
 ###OSX
 - Install [homebrew](http://brew.sh/)
-- Install imagemagick `brew install imagemagick
-- Install ffmpeg `brew install ffmpeg
+- Install imagemagick `brew install imagemagick`
+- Install ffmpeg `brew install ffmpeg`
 
 ###Both
 - Download and install [node.js](http://nodejs.org/) - (Glue)
@@ -46,40 +46,19 @@ Add some images to the `in` folder - Open up your terminal (or command prompt) a
 
 Once there, set it off:
 
-`node smash.js`
+`node smash`
 
 You should find your finished video in the `out` folder.
 
 ##Settings
 The settings are geared towards high quality, you will end up with quite weighty videos if you don't tweak the settings.
 
-You'll find the api documentation for [mp here](https://github.com/aheckmann/gm#basic-usage) and [Fluent FFmpeg here](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg#supplying-ffmpeg-options).
+You'll find the api documentation for [gm here](https://github.com/aheckmann/gm#basic-usage) and [Fluent FFmpeg here](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg#supplying-ffmpeg-options).
 
-##Syncing Music
-<inprogress>
-So to sync the 2 up, you’ll need to know the BPM of the track:
-
-https://songbpm.com/
-
-and then convert that into frames per beat:
-
-http://www.vjamm.com/support_av_bpm.php?lang=en
-
-Once you know your frames per beat, var that equates to the images per second both called IPS!
-
-So to get your required FPS lets use my one of my favourite songs: 
-
-Freak by LFO > 135 bpm 
-FPS of clip > 30 fps
-
-= 8.02615933412604 images per second
-</inprogress>
 
 ##Todo
-- Add BPM var and calulate images per second by what that is set to
-- ask user what the desired BPM is on run
 - Check in, out, temp folders exist. Throw errors if not
-- pre conversion read in image meta data, arange items by date taken if possible (rather than file number)
+- Read in music file
 
 ##License
 
