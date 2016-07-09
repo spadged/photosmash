@@ -55,7 +55,6 @@ The settings are geared towards high quality, you will end up with quite weighty
 
 You'll find the api documentation for [gm here](https://github.com/aheckmann/gm#basic-usage) and [Fluent FFmpeg here](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg#supplying-ffmpeg-options).
 
-
 ##Todo
 - Check in, out, temp folders exist. Throw errors if not
 - Read in music file

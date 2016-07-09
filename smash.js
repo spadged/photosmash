@@ -10,11 +10,8 @@ var input = "./in/";
 var temp = "./temp/";
 var output = "./out/";
 
-// 720
-var size = {width:1280,height:720};
-
 //1080
-//var size = {width:1920,height:1080};
+var size = {width:1920, height:1080};
 
 var fileList = [];
 
@@ -91,17 +88,25 @@ function bpmToIps(bpm)
 {
 	var ipsRaw = (FPS * 60) / bpm;
 	
-	return Math.round(ipsRaw * 100) / 100;
+	return 15; //Math.round(ipsRaw * 100) / 100;
 }
 
 function hasInputImages()
 {
-	return true;
+	return true; 
+	
+	//todo: detect images in input folder
 }
 
 function hasFolders()
 {
-	return true;
+	return true; 
+	
+	//todo: turn this into a promise
+
+	//todo: detect existance of input, output & temp folders. If anyone doesn't exist, create it
+
+	//todo: clear out anyframes in the temp folder
 }
 
 function orderImages()
@@ -216,8 +221,6 @@ function processImage(image, index)
 {
 	var deferred = Q.defer();
 	
-	console.log("Processing image: " + image.name);
-	
 	var width = size.width;
 	
 	var height = size.height;
@@ -242,6 +245,8 @@ function processImage(image, index)
 	
 	var imageName = "frame_" + imageNumber + ".png";
 	
+	console.log("Processing frame: " + imageName);
+
 	im(input + image.name)
 		.background('#000000')
 		.autoOrient()
@@ -303,8 +308,12 @@ function buildVideo()
 			deferred.resolve();
 		})
 		.saveToFile(output + 'output.mp4');
+
+		//todo: timestamp output filename
 	
 	return deferred.promise;
 }
 
 smash();
+
+//todo: ignore files in input folder that are not jpg or png
