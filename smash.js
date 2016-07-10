@@ -10,16 +10,17 @@ var input = "./in/";
 var temp = "./temp/";
 var output = "./out/";
 
-//1080
+var directories = {
+	input: "./in/",
+	temp: "./temp/",
+	output: "./out/"
+}
+
 var size = {width:1920, height:1080};
 
 var fileList = [];
 
-var fileIndex = 0;
-
 var imageList = [];
-
-var imageIndex = 0;
 
 var IPS = 8;
 
@@ -28,6 +29,7 @@ var FPS = 30;
 function smash()
 {
 	Q.fcall(start)
+		.then(clearDirTemp)
 		.then(orderImages)
 		.then(proccessImages)
 		.then(buildVideo)
@@ -45,6 +47,15 @@ function smash()
 		});
 }
 
+function genFileName()
+{
+	var now = new Date();
+	
+	// todo: not working as expected
+
+	return now.getFullYear() + now.getMonth() + now.getDate() + now.getHours() + now.getMinutes() + ".mp4";
+}
+
 function start()
 {
 	var errors = [];
@@ -58,7 +69,7 @@ function start()
 	
 	if(!hasInputImages())
 	{
-		errors.push("The input folder does not have any valid images to process. Please add .jpeg images.");
+		errors.push("The input folder does not have any valid images to process. Please add .jpg images.");
 	}
 	
 	if(errors.length == 0)
@@ -84,29 +95,76 @@ function start()
 	return deferred.promise;
 }
 
+function getImageFileList()
+{
+	var list = fs.readdirSync(input);
+
+	//todo: loop over array and remove folders, and files that don't end in .jpg from array
+
+	return list;
+}
+
 function bpmToIps(bpm)
 {
 	var ipsRaw = (FPS * 60) / bpm;
 	
-	return 15; //Math.round(ipsRaw * 100) / 100;
+	return Math.round(ipsRaw * 100) / 100;
 }
 
 function hasInputImages()
-{
-	return true; 
+{	
+	var entries = getImageFileList();
 	
-	//todo: detect images in input folder
+	return (entries.length > 0);
 }
 
 function hasFolders()
 {
 	return true; 
-	
-	//todo: turn this into a promise
 
 	//todo: detect existance of input, output & temp folders. If anyone doesn't exist, create it
+}
 
-	//todo: clear out anyframes in the temp folder
+function clearDirTemp()
+{
+	var deferred = Q.defer();
+	
+	console.log("Clearing out temp files");
+
+	fs.readdir(
+		temp,
+		function(err, files)
+		{
+    		if (err)
+			{
+      			console.log(err);
+
+				deferred.reject("Error clearing out temp dir");
+    		}
+			else
+			{
+				if (files.length === 0)
+				{
+					deferred.resolve();
+				}
+				else
+				{
+					for(var i = 0; i < files.length; i++)
+					{
+						var fileName = files[i];
+
+						
+						fs.unlinkSync(temp + fileName);
+						
+					}
+
+					deferred.resolve();
+				}
+			}
+		}
+	);
+
+	return deferred.promise;
 }
 
 function orderImages()
@@ -281,6 +339,8 @@ function buildVideo()
 		- '-pix_fmt yuv420p' http://superuser.com/questions/704744/video-produced-from-bmp-files-only-plays-in-vlc-but-no-other-players
 	*/
 
+	var outputName = genFileName();
+
 	new FFmpeg({source: temp + 'frame_%04d.png' })
 		.withNoAudio()
 		.withVideoCodec('libx264')
@@ -307,7 +367,7 @@ function buildVideo()
 		{
 			deferred.resolve();
 		})
-		.saveToFile(output + 'output.mp4');
+		.saveToFile(output + outputName);
 
 		//todo: timestamp output filename
 	
@@ -317,3 +377,4 @@ function buildVideo()
 smash();
 
 //todo: ignore files in input folder that are not jpg or png
+//todo: need to chunk out video generation to 100 images at a time then stitch them all together
