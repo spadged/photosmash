@@ -6,25 +6,26 @@ var prompt = require('prompt');
 var ExifImage = require('exif').ExifImage;
 var Q = require('q');
 
-var input = "./in/";
-var temp = "./temp/";
-var output = "./out/";
-
-var directories = {
+var dir = {
 	input: "./in/",
 	temp: "./temp/",
 	output: "./out/"
 }
 
-var size = {width:1920, height:1080};
+var list = {
+	files: [],
+	images: []
+}
 
-var fileList = [];
+var size = {
+	width:1920, 
+	height:1080
+};
 
-var imageList = [];
-
-var IPS = 8;
-
-var FPS = 30;
+var FPS = {
+	in: 8,
+	out: 30
+}
 
 function smash()
 {
@@ -50,10 +51,16 @@ function smash()
 function genFileName()
 {
 	var now = new Date();
-	
-	// todo: not working as expected
 
-	return now.getFullYear() + now.getMonth() + now.getDate() + now.getHours() + now.getMinutes() + ".mp4";
+	var sb = [
+		now.getFullYear(),
+		now.getMonth(),
+		now.getDate(),
+		now.getHours(),
+		now.getMinutes()
+	];
+
+	return  sb.join("-") + ".mp4";
 }
 
 function start()
@@ -62,10 +69,7 @@ function start()
 	
 	var deferred = Q.defer();
 	  
-	if(!hasFolders())
-	{
-		errors.push("One or more of the required folders are missing (in, out, temp). Try running 'npm install' first.");
-	}
+	checkFolders();
 	
 	if(!hasInputImages())
 	{
@@ -78,11 +82,11 @@ function start()
 		
 		prompt.get(['BPM'], function (err, result)
 		{			
-			IPS = bpmToIps(result.BPM);
+			FPS.in = bpmToIps(result.BPM);
 			
-			console.info("Processing > BPM: " + result.BPM + " | FPS: " +  FPS + " | IPS: " + IPS);
+			console.info("Processing > BPM: " + result.BPM + " | FPS: " +  FPS.out + " | IPS: " + FPS.in);
 	
-			fileList = fs.readdirSync(input);
+			list.files = getImageFileList();
 			
 			deferred.resolve();
 		});
@@ -97,16 +101,26 @@ function start()
 
 function getImageFileList()
 {
-	var list = fs.readdirSync(input);
+	var files = fs.readdirSync(dir.input);
 
-	//todo: loop over array and remove folders, and files that don't end in .jpg from array
+	var result = [];
 
-	return list;
+	for(var i = 0; i < files.length; i++)
+	{
+		var item = files[i];
+
+		if(item.toLowerCase().indexOf(".jpg") > -1)
+		{
+			result.push(item);
+		}
+	}
+
+	return result;
 }
 
 function bpmToIps(bpm)
 {
-	var ipsRaw = (FPS * 60) / bpm;
+	var ipsRaw = (FPS.out * 60) / bpm;
 	
 	return Math.round(ipsRaw * 100) / 100;
 }
@@ -118,11 +132,15 @@ function hasInputImages()
 	return (entries.length > 0);
 }
 
-function hasFolders()
+function checkFolders()
 {
-	return true; 
-
-	//todo: detect existance of input, output & temp folders. If anyone doesn't exist, create it
+	for(var key in dir)
+	{
+		if(!fs.existsSync(dir[key]))
+		{
+			fs.mkdirSync(dir[key]);
+		}
+	}
 }
 
 function clearDirTemp()
@@ -132,7 +150,7 @@ function clearDirTemp()
 	console.log("Clearing out temp files");
 
 	fs.readdir(
-		temp,
+		dir.temp,
 		function(err, files)
 		{
     		if (err)
@@ -153,9 +171,7 @@ function clearDirTemp()
 					{
 						var fileName = files[i];
 
-						
-						fs.unlinkSync(temp + fileName);
-						
+						fs.unlinkSync(dir.temp + fileName);
 					}
 
 					deferred.resolve();
@@ -173,9 +189,9 @@ function orderImages()
 	
 	console.log('Getting EXIF data');
 
-	for(var i = 0; i < fileList.length; i++)
+	for(var i = 0; i < list.files.length; i++)
 	{
-		var name = fileList[i];
+		var name = list.files[i];
 
 		if(name != '.DS_Store')
 		{
@@ -194,7 +210,7 @@ function orderImage(path)
 
 	try
 	{
-		new ExifImage({ image : input + path}, function (error, exifData)
+		new ExifImage({ image : dir.input + path}, function (error, exifData)
 		{
 			if (error)
 			{
@@ -202,7 +218,7 @@ function orderImage(path)
 			}
 			else
 			{
-				imageList.push({
+				list.images.push({
 					"name": path,
 					"date": Number(getImageDate(exifData))
 				});
@@ -265,11 +281,11 @@ function proccessImages()
 	
 	console.log("Processing images...");
 
-	imageList.sort(sortImages);
+	list.images.sort(sortImages);
 	
-	for(var i = 0; i < imageList.length; i++)
+	for(var i = 0; i < list.images.length; i++)
 	{
-		promises.push(processImage(imageList[i], i));
+		promises.push(processImage(list.images[i], i));
 	}
 	
 	return Q.all(promises);
@@ -302,28 +318,36 @@ function processImage(image, index)
 	}
 	
 	var imageName = "frame_" + imageNumber + ".png";
-	
-	console.log("Processing frame: " + imageName);
 
-	im(input + image.name)
-		.background('#000000')
-		.autoOrient()
-		.resize(width)
-		.gravity('Center')
-		.crop(width, height,0,0)
-		//.extent(width, height)
-		.noProfile()
-		.write(temp + imageName, function (err)
-		{
-			if (!err)
-			{				
-				deferred.resolve('Finished processing image: ' + imageName);
-			}
-			else
-			{								
-				deferred.reject('Error processing images: ' + err);
-			}
-		});
+	console.log("Processing frame: " + image.name + " >>> " + imageName);
+
+	try
+	{
+		im(dir.input + image.name)
+			.background('#000000')
+			.autoOrient()
+			.resize(width)
+			.gravity('Center')
+			.crop(width, height, 0, 0)
+			//.extent(width, height)
+			.noProfile()
+			.write(dir.temp + imageName, function (err)
+			{
+				if (!err)
+				{				
+					deferred.resolve('Finished processing image: ' + imageName);
+				}
+				else
+				{								
+					deferred.reject('Error processing images: ' + err);
+				}
+			});
+	}
+	catch(e)
+	{
+		deferred.reject('ERROR: ' + e);
+		console.log("Dropped frame!");
+	}
 		
 	return deferred.promise;
 }
@@ -341,13 +365,13 @@ function buildVideo()
 
 	var outputName = genFileName();
 
-	new FFmpeg({source: temp + 'frame_%04d.png' })
+	new FFmpeg({source: dir.temp + 'frame_%04d.png' })
 		.withNoAudio()
 		.withVideoCodec('libx264')
 		.withSize(size.width + 'x' + size.height)
 		.withVideoBitrate('2000k')
-		.withFpsInput(IPS)
-		.withFpsOutput(FPS)
+		.withFpsInput(FPS.in)
+		.withFpsOutput(FPS.out)
 		.addOptions(['-crf 19', '-preset slow', '-pix_fmt yuv420p'])
 		.on('progress', function(progress)
 		{
@@ -367,7 +391,7 @@ function buildVideo()
 		{
 			deferred.resolve();
 		})
-		.saveToFile(output + outputName);
+		.saveToFile(dir.output + outputName);
 
 		//todo: timestamp output filename
 	
@@ -376,5 +400,5 @@ function buildVideo()
 
 smash();
 
-//todo: ignore files in input folder that are not jpg or png
-//todo: need to chunk out video generation to 100 images at a time then stitch them all together
+//todo: need to chunk out video generation to 100 images or so at a time then 
+//stitch them all together. Currently craps out at about 620.
