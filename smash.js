@@ -24,7 +24,7 @@ class PhotoSmash
 		};
 		
 		this.FPS = {
-			in: 7,
+			in: 8.5,
 			out: 30
 		}
 
@@ -80,6 +80,8 @@ class PhotoSmash
 
 			fs.emptyDirSync(this.dir.tempVideo);
 
+			this.list.files = this.getImageFileList();
+
 			//Check for errors
 			let errors = [];
 
@@ -90,22 +92,23 @@ class PhotoSmash
 			
 			if(errors.length == 0)
 			{
-				/*prompt.start();
+				prompt.start();
 				
 				prompt.get(['BPM'], (err, result) =>
 				{			
-					this.FPS.in = this.bpmToIps(result.BPM);
+					if(isNaN(result.BPM))
+					{
+						console.info("No number set, will use IPS: " + this.FPS.in);
+					}
+					else
+					{
+						this.FPS.in = this.bpmToIps(result.BPM);
 					
-					console.info("Processing > BPM: " + result.BPM + " | FPS: " +  this.FPS.out + " | IPS: " + this.FPS.in);
-			
-					this.list.files = this.getImageFileList();
-					
+						console.info("Processing > BPM: " + result.BPM + " | FPS: " +  this.FPS.out + " | IPS: " + this.FPS.in);
+					}
+
 					resolve();
-				});*/
-
-				this.list.files = this.getImageFileList();
-
-				resolve();
+				});
 			}
 			else
 			{		
