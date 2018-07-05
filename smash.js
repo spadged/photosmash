@@ -80,8 +80,6 @@ class PhotoSmash
 
 			fs.emptyDirSync(this.dir.tempVideo);
 
-			this.list.files = this.getImageFileList();
-
 			//Check for errors
 			let errors = [];
 
@@ -106,6 +104,8 @@ class PhotoSmash
 					
 						console.info("Processing > BPM: " + result.BPM + " | FPS: " +  this.FPS.out + " | IPS: " + this.FPS.in);
 					}
+
+					this.list.files = this.getImageFileList();
 
 					resolve();
 				});
