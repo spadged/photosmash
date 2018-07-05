@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('fs-extra');
 const gm = require('gm');
 const im = gm.subClass({ imageMagick: true });
 const FFmpeg = require('fluent-ffmpeg');
@@ -9,26 +9,41 @@ class PhotoSmash
 {
 	constructor()
 	{
+		//config
 		this.dir = {
 			input: "./in/",
 			temp: "./temp/",
+			tempPhoto: "./temp/photo/",
+			tempVideo: "./temp/video/",
 			output: "./out/"
 		}
-		
-		this.list = {
-			files: [],
-			images: []
-		}
-		
+
 		this.size = {
 			width:1920, 
 			height:1080
 		};
 		
 		this.FPS = {
-			in: 8,
+			in: 7,
 			out: 30
 		}
+
+		let chunkSize = 350;
+
+		this.IMG_EXT = ".jpg";
+		
+		//global vars
+		this.list = {
+			files: [],
+			images: []
+		}
+		
+		this.chunk = {
+			count: chunkSize,
+			length: chunkSize
+		}
+
+		this.processIndex = 0;
 
 		this.smash();
 	}
@@ -38,10 +53,10 @@ class PhotoSmash
 		try
 		{
 			await this.start();
-			await this.clearDirTemp();
 			await this.orderImages();
 			await this.proccessImages();
-			await this.buildVideo();
+			await this.buildVideos();
+			await this.stitchVideos();
 			
 			console.log("Done");
 		}
@@ -56,10 +71,18 @@ class PhotoSmash
 	{
 		return new Promise((resolve, reject) => 
 		{
+			for(let key in this.dir)
+			{
+				fs.ensureDirSync(this.dir[key])
+			}
+
+			fs.emptyDirSync(this.dir.tempPhoto);
+
+			fs.emptyDirSync(this.dir.tempVideo);
+
+			//Check for errors
 			let errors = [];
-	
-			this.checkFolders();
-		
+
 			if(!this.hasInputImages())
 			{
 				errors.push("The input folder does not have any valid images to process. Please add .jpg images.");
@@ -67,7 +90,7 @@ class PhotoSmash
 			
 			if(errors.length == 0)
 			{
-				prompt.start();
+				/*prompt.start();
 				
 				prompt.get(['BPM'], (err, result) =>
 				{			
@@ -78,7 +101,11 @@ class PhotoSmash
 					this.list.files = this.getImageFileList();
 					
 					resolve();
-				});
+				});*/
+
+				this.list.files = this.getImageFileList();
+
+				resolve();
 			}
 			else
 			{		
@@ -87,51 +114,12 @@ class PhotoSmash
 		});
 	}
 	
-	clearDirTemp()
-	{
-		return new Promise((resolve, reject) =>
-		{
-			console.log("Clearing out temp files");
-	
-			fs.readdir(
-				this.dir.temp,
-				(err, files) =>
-				{
-					if (err)
-					{
-						console.log(err);
-	
-						reject("Error clearing out temp dir");
-					}
-					else
-					{
-						if (files.length === 0)
-						{
-							resolve();
-						}
-						else
-						{
-							for(var i = 0; i < files.length; i++)
-							{
-								let fileName = files[i];
-	
-								fs.unlinkSync(this.dir.temp + fileName);
-							}
-	
-							resolve();
-						}
-					}
-				}
-			);
-		});
-	}
-	
 	async orderImages()
 	{
 		return new Promise(async (resolve, reject) =>
 		{
 			console.log('Getting EXIF data');
-	
+
 			for(let i = 0; i < this.list.files.length; i++)
 			{
 				let name = this.list.files[i];
@@ -190,7 +178,7 @@ class PhotoSmash
 			console.log("Processing images...");
 			
 			this.list.images.sort(this.sortImages);
-		
+
 			for(let i = 0; i < this.list.images.length; i++)
 			{
 				await this.processImage(this.list.images[i], i);
@@ -199,33 +187,57 @@ class PhotoSmash
 			resolve();
 		});
 	}
+
+	getFrameName(index)
+	{
+		let imageNumber;
+			
+		switch(String(index).length)
+		{
+			case 1:
+				imageNumber = '00' + index;
+				break;
+			case 2:
+				imageNumber = '0' + index;
+				break;
+			case 3:
+				imageNumber = index;
+				break;
+		}
+
+		return "frame_" + imageNumber + this.IMG_EXT;
+	}
 	
 	processImage(image, index)
 	{
 		return new Promise((resolve, reject) =>
 		{			
-			let imageNumber;
-			
-			switch(String(index).length)
+			//chunk time!!!
+			if(index > this.chunk.count)
 			{
-				case 1:
-					imageNumber = '000' + index;
-					break;
-				case 2:
-					imageNumber = '00' + index;
-					break;
-				case 3:
-					imageNumber = '0' + index;
-					break;
-				default:
-					imageNumber = index;
-					break;
+				this.chunk.count += this.chunk.length;
+
+				this.processIndex = 0;
 			}
+
+			var chunkDir = this.dir.tempPhoto + this.chunk.count + "/";
+
+			/*
+				"why create chunks?" You might ask.
+
+				It appears that ffmpeg can only process around 400 frames at once into a video. 
+				I have no idea why (its probably memory/machine related). So we chunk out the video 
+				creation so we can process a few thousand frames and not worry about anything getting lost. 
+				
+				Whoop!
+			*/
+
+			fs.ensureDirSync(chunkDir);
 			
-			let imageName = "frame_" + imageNumber + ".png";
+			let imageName = this.getFrameName(this.processIndex);
 	
-			console.log("Processing frame: " + image.name + " >>> " + imageName);
-	
+			console.log("Processing chunk " + this.chunk.count +" frame: " + image.name + " >>> " + imageName);
+
 			try
 			{
 				im(this.dir.input + image.name)
@@ -236,11 +248,13 @@ class PhotoSmash
 					.crop(this.size.width, this.size.height, 0, 0)
 					//.extent(width, height)
 					.noProfile()
-					.write(this.dir.temp + imageName, (err) =>
+					.write(chunkDir + imageName, (err) =>
 					{
 						if (!err)
 						{				
 							resolve('Finished processing image: ' + imageName);
+
+							this.processIndex++;
 						}
 						else
 						{								
@@ -255,21 +269,41 @@ class PhotoSmash
 			}
 		});
 	}
+
+	async buildVideos()
+	{
+		return new Promise(async (resolve, reject) =>
+		{
+			console.log('building video chunks data');
+
+			let chunkDirs = fs.readdirSync(this.dir.tempPhoto);
+
+			for(var i = 0; i < chunkDirs.length; i++)
+			{
+				await this.buildVideo(chunkDirs[i]).catch(function(message)
+				{
+					console.log(message);
+				});
+			}
 	
-	buildVideo()
+			resolve();
+		});
+	}
+	
+	buildVideo(chunk)
 	{
 		return new Promise((resolve, reject) =>
 		{
-			console.log("Generating Video...");
-		
+			console.log("Generating Video Chunk " + chunk + "...");
+
 			/*
 				Options 
 				- '-pix_fmt yuv420p' http://superuser.com/questions/704744/video-produced-from-bmp-files-only-plays-in-vlc-but-no-other-players
 			*/
 	
-			let outputName = this.genFileName();
+			let outputName = this.dir.tempVideo + chunk + ".mp4";
 	
-			new FFmpeg({source: this.dir.temp + 'frame_%04d.png' })
+			new FFmpeg({source: this.dir.tempPhoto + chunk + '/frame_%03d' + this.IMG_EXT})
 				.withNoAudio()
 				.withVideoCodec('libx264')
 				.withSize(this.size.width + 'x' + this.size.height)
@@ -280,7 +314,7 @@ class PhotoSmash
 				.on('progress', (progress) =>
 				{
 					//deferred.notify("Processing frames: " + progress.frames);
-					console.log("Processing frames: " + progress.frames);
+					console.log("Processing chunk " + chunk + " frames: " + progress.frames);
 				})
 				.on('error', (err, stdout, stderr) =>
 				{
@@ -296,7 +330,50 @@ class PhotoSmash
 				{
 					resolve();
 				})
-				.saveToFile(this.dir.output + outputName);
+				.saveToFile(outputName);
+		});
+	}
+
+	async stitchVideos()
+	{
+		return new Promise((resolve, reject) =>
+		{
+			var fileList = fs.readdirSync(this.dir.tempVideo);
+
+			var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+
+			fileList.sort(collator.compare);
+
+			var listFileName = this.dir.temp + 'videolist.txt'; 
+
+			var fileNames = [];
+
+			fileList.forEach(function(fileName, index)
+			{
+				fileNames.push("file '" + "video/" + fileName + "'");
+			});
+
+			fs.writeFileSync(listFileName, fileNames.join("\n"));
+			
+			new FFmpeg()
+				.input(listFileName)
+				.inputOptions(['-f concat', '-safe 0'])
+				.outputOptions('-c copy')
+				.on('error', (err, stdout, stderr) =>
+				{
+					var sb = [];
+					
+					sb.push('Cannot process video: ' + err.message);
+					sb.push("ffmpeg stdout:\n" + stdout);
+					sb.push("ffmpeg stderr:\n" + stderr);
+					
+					reject(sb.join("\n"));
+				})
+				.on('end', () =>
+				{
+					resolve();
+				})
+				.save(this.genFileName());
 		});
 	}
 	
@@ -311,8 +388,10 @@ class PhotoSmash
 		for(var i = 0; i < files.length; i++)
 		{
 			let item = files[i];
-	
-			if(item.toLowerCase().indexOf(".jpg") > -1)
+			
+			let name = item.toLowerCase()
+
+			if(name.indexOf(".jpg") > -1 || name.indexOf(".png") > -1)
 			{
 				result.push(item);
 			}
@@ -334,18 +413,7 @@ class PhotoSmash
 		
 		return (entries.length > 0);
 	}
-	
-	checkFolders()
-	{
-		for(let key in this.dir)
-		{
-			if(!fs.existsSync(this.dir[key]))
-			{
-				fs.mkdirSync(this.dir[key]);
-			}
-		}
-	}
-	
+
 	genFileName()
 	{
 		let now = new Date();
@@ -358,7 +426,7 @@ class PhotoSmash
 			now.getMinutes()
 		];
 	
-		return sb.join("-") + ".mp4";
+		return this.dir.output + sb.join("-") + ".mp4";
 	}
 	
 	getImageDate(data)
@@ -403,6 +471,3 @@ class PhotoSmash
 }
 
 new PhotoSmash();
-
-//todo: need to chunk out video generation to 100 images or so at a time then 
-//stitch them all together. Currently craps out at about 620.
