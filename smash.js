@@ -28,7 +28,7 @@ class PhotoSmash
 			out: 30
 		}
 
-		let chunkSize = 350;
+		let chunkSize = 300;
 
 		this.IMG_EXT = ".jpg";
 		
@@ -144,7 +144,7 @@ class PhotoSmash
 	{
 		return new Promise((resolve, reject) =>
 		{
-			console.log("Get EXIF >", this.dir.input + path);
+			//console.log("Get EXIF >", this.dir.input + path);
 	
 			try
 			{
@@ -237,9 +237,9 @@ class PhotoSmash
 
 			fs.ensureDirSync(chunkDir);
 			
-			let imageName = this.getFrameName(this.processIndex);
+			var imageName = this.getFrameName(this.processIndex);
 	
-			console.log("Processing chunk " + this.chunk.count +" frame: " + image.name + " >>> " + imageName);
+			console.log("Processing chunk " + this.chunk.count +" index "+ index +" pointer "+ this.processIndex +" | frame: " + image.name + " >>> " + imageName);
 
 			try
 			{
@@ -261,7 +261,7 @@ class PhotoSmash
 						}
 						else
 						{								
-							reject('Error processing images: ' + err);
+							reject('Error processing image '+ imageName +': ' + err);
 						}
 					});
 			}
